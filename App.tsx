@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { analyzeCompetitors, verifyClient } from './services/geminiService';
+import { analyzeCompetitors, verifyClient, } from './services/geminiService';
 import { analyzeCompetitorsHybrid } from './services/hybridService';
 import InputSection from './components/InputSection';
 import CompetitorTable from './components/CompetitorTable';
@@ -8,13 +8,13 @@ import ClientAnalysisCard from './components/ClientAnalysis';
 import USPSection from './components/USPSection';
 import { AnalysisResult, AppStatus } from './types';
 import { Crown, Zap, AlertCircle, ArrowLeft, ExternalLink, ChevronDown, ChevronUp, Bot, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-
+verifyClient
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus | 'verifying_client'>('idle');
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isSourcesVisible, setIsSourcesVisible] = useState(false);
-  const [model, setModel] = useState<'gemini' | 'hybrid'>('hybrid');
+  const [model, setModel] = useState<'gemini' | 'hybrid'>('gemini');
 
   // Verification State
   const [verificationData, setVerificationData] = useState<{ summary: string; correctIndustry: string; keyProducts: string[]; usp: string } | null>(null);
@@ -27,7 +27,7 @@ const App: React.FC = () => {
     setPendingRequest({ url, country, industry });
 
     try {
-      const data = await verifyClient(url, industry);
+      const data = await verifyClient(url, country, industry);
       setVerificationData(data);
     } catch (err: any) {
       console.error("Verification failed:", err);
@@ -56,8 +56,8 @@ const App: React.FC = () => {
   };
 
   const handleVerificationConfirm = () => {
-    if (pendingRequest) {
-      startFullAnalysis(pendingRequest.url, pendingRequest.country, pendingRequest.industry);
+    if (pendingRequest && verificationData) {
+      startFullAnalysis(pendingRequest.url, pendingRequest.country, verificationData.correctIndustry);
     }
   };
 

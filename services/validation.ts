@@ -28,6 +28,7 @@ export const ClientAnalysisSchema = z.object({
     industry: z.string().default("N/A"),
     services: z.array(z.string()).default([]),
     products: z.array(z.string()).default([]),
+    topSellers: z.array(z.string()).default([]),
     targetRegion: z.string().default("N/A"),
     countryCode: z.string().default("N/A"),
 });

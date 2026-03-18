@@ -1,40 +1,41 @@
 
 export const getIndustryGuidance = (clientUrl: string, country: string, industry: string) => `
     PHASE 1: CLIENT PRODUCT DNA MAPPING
-    First, visit and analyze ${clientUrl} to define the "Product DNA" within the context of the user-provided industry: "${industry}".
-    - What are the EXACT core products? (e.g., if industry is "Fitness Supplements", identify if they sell "Whey protein", "Creatine", etc.).
-    - What is the price segment? (Budget, Mid-range, Premium/Luxury).
-    - What is the specific problem these products solve?
+    First, visit and analyze ${clientUrl} to define the "Product DNA" within the context of the "${industry}" industry **SPECIFICALLY for the "${country}" market**.
+    - If the client is a multi-national company (e.g., .com, .de, .eu), you **MUST focus exclusively on their operations, product availability, and service offerings in ${country}**.
+    - What are the EXACT core products/services they offer in ${country}?
+    - What are their TOP SELLING or FLAGSHIP products in the ${country} market?
+    - What is the price segment in the local ${country} market?
+    - What is the specific problem these products solve for customers in ${country}?
 
     **SELECTION & EXCLUSION RULES**: 
     1. **PRODUCT MATCH PRIORITY**:
-       - **PRIORITIZE** companies that sell the EXACT same product types within the specified industry: "${industry}".
-       - **FALLBACK**: If exact matches are scarce, include competitors with OVERLAPPING product lines (at least 50% match).
+       - **PRIORITIZE** companies that sell the EXACT same product types within the specified industry: "${industry}" and category identified in Phase 1.
+       - **FALLBACK**: If exact matches are scarce, include competitors with OVERLAPPING product lines (at least 50% match) that target the same customer segment in ${country}.
        
-    2. **GEOGRAPHIC FOCUS**: 
-       - **MUST** include companies operating in the country of input: ${country}.
-       - PREFERENCE for local TLDs (e.g., .sk for Slovakia, .cz for Czechia). .com/.eu domains are acceptable if the website is localized.
+    2. **GEOGRAPHIC LOCK**: 
+       - **MANDATORY**: Only include companies that are DIRECTLY COMPETING in ${country}.
+       - PREFERENCE for local TLDs (e.g., .sk for Slovakia, .cz for Czechia). .com/.eu/global domains are acceptable ONLY if they have a dedicated local version, local pricing, and ship/operate in ${country}.
+       - **EXCLUDE** companies that do not serve the ${country} market, even if they are global leaders in the industry.
 
     3. **ACTIVE DISCOVERY**: 
-       - **MANDATORY**: Use Google Search to find the official website for each potential competitor.
+       - **MANDATORY**: Use Google Search to find the official website for each potential competitor in ${country}.
        - **MULTIPLE ITERATIONS REQUIRED**: 
-         - If initial searches yield few results, try synonyms, specific product names.
-         - Look for "specialized e-shops" and "dedicated brands".
+         - Search in the local language of ${country} (if applicable).
+         - Try queries like: "najlepší e-shop s [product] ${country}", "predajca [product] ${country}", "[industry] firmy ${country}".
+         - Look for "specialized local e-shops" and "dedicated local brands".
        - **QUALITY OVER QUANTITY**:
          - **PRIORITY**: Only include HIGH-QUALITY, ESTABLISHED competitors.
-         - **Market Leaders**: Modern website, market presence.
-         - **Real Competitors**: Credible, active business.
-         - **FALLBACK STRATEGY**: If you cannot find 5 perfect matches, return as many high-quality ones as possible (e.g., 2-3 is better than 0).
+         - **Market Leaders**: Modern website, strong local market presence.
+         - **Real Competitors**: Credible, active business competing for the same local customers.
        
        - **BROKEN LINKS CHECK**: 
-         - **MANDATORY URL VERIFICATION**: Attempt to visit each competitor's website.
-         - If a URL is broken (404, DNS error), try to find the correct one via Google Search.
-         - **FINAL CHECK**: If the website is definitely inaccessible, EXCLUDE the competitor.
+         - **MANDATORY URL VERIFICATION**: Attempt to verify each competitor's website is active and serves ${country}.
 
-    4. **PRIMARY FOCUS**: The competitor's key business should be relevant to "${industry}".
+    4. **PRIMARY FOCUS**: The competitor's key business should be relevant to "${industry}" and specifically to the niche the client occupies in ${country}.
     5. **MARKETPLACE HANDLING**: 
-       - **AVOID** general marketplaces (Alza, Amazon) IF specialized competitors exist.
-       - **INCLUDE** them ONLY if the client themselves is a general marketplace or if the niche is dominated exclusively by them.
+       - **AVOID** general marketplaces (Alza, Amazon, Mall) IF specialized competitors exist.
+       - **INCLUDE** them ONLY if the client themselves is a general marketplace or if the niche is dominated exclusively by them in ${country}.
 `;
 
 export const getPrompt = (clientUrl: string, country: string, industry: string) => `
@@ -88,6 +89,7 @@ export const getPrompt = (clientUrl: string, country: string, industry: string) 
         "industry": "string",
         "services": ["string"],
         "products": ["string"],
+        "topSellers": ["string"],
         "targetRegion": "string",
         "countryCode": "string (ISO 2-letter code)"
       },
@@ -169,7 +171,7 @@ export const getFormattingPrompt = () => `
     {
       "clientAnalysis": { 
         "name": "string", "url": "string", "industry": "string", 
-        "services": ["string"], "products": ["string"], 
+        "services": ["string"], "products": ["string"], "topSellers": ["string"],
         "targetRegion": "string", "countryCode": "string"
       },
       "topCompetitors": [ 

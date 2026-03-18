@@ -12,6 +12,40 @@ interface CompetitorTableProps {
 }
 
 const CompetitorTable: React.FC<CompetitorTableProps> = ({ title, description, competitors, icon, countryCode }) => {
+  const parseRevenue = (revenue: string): number => {
+    if (!revenue || revenue === 'N/A') return -1;
+
+    // Remove whitespace and normalize
+    let clean = revenue.toLowerCase().replace(/\s/g, '').replace(',', '.');
+
+    // Handle multipliers
+    let multiplier = 1;
+    if (clean.includes('mld') || clean.includes('mld.') || clean.includes('miliard') || clean.includes('bill')) {
+      multiplier = 1000000000;
+      clean = clean.replace(/(mld|miliard|bill).*/g, '');
+    } else if (clean.includes('mil') || clean.includes('mil.') || clean.includes('mill')) {
+      multiplier = 1000000;
+      clean = clean.replace(/(mil|mill).*/g, '');
+    } else if (clean.includes('k')) {
+      multiplier = 1000;
+      clean = clean.replace(/k.*/g, '');
+    } else if (clean.match(/\d+m(?!\w)/)) { // Handle "5m" as 5 million if not followed by other letters
+      multiplier = 1000000;
+      clean = clean.replace('m', '');
+    }
+
+    // Extract first number
+    const match = clean.match(/[\d.]+/);
+    if (!match) return -1;
+
+    const val = parseFloat(match[0]);
+    return isNaN(val) ? -1 : val * multiplier;
+  };
+
+  const sortedCompetitors = [...(competitors || [])].sort((a, b) => {
+    return parseRevenue(b.revenue || '') - parseRevenue(a.revenue || '');
+  });
+
   const getMetaAdsLink = (name: string, domain?: string) => {
     const query = domain ? domain.replace('https://', '').replace('http://', '').split('/')[0] : name;
     return `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=${encodeURIComponent(query)}`;
@@ -58,7 +92,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({ title, description, c
             </tr>
           </thead>
           <tbody className="divide-y divide-[#333]">
-            {(competitors || []).map((comp, idx) => (
+            {(sortedCompetitors || []).map((comp, idx) => (
               <tr key={idx} className="hover:bg-[#f7f7f7]/5 transition-colors">
                 <td className="px-6 py-4 align-top">
                   <div className="font-semibold text-[#f7f7f7] text-base">{comp.name}</div>
