@@ -1,15 +1,44 @@
 
 import React, { useState } from 'react';
-import { Search, Globe, ArrowRight, Loader2, Briefcase } from 'lucide-react';
+import { Search, Globe, ArrowRight, Loader2, Briefcase, ChevronDown } from 'lucide-react';
 
 interface InputSectionProps {
   onAnalyze: (url: string, country: string, industry: string) => void;
   isLoading: boolean;
 }
 
+const COUNTRY_OPTIONS = [
+  { value: 'Slovakia', label: 'Slovensko 🇸🇰' },
+  { value: 'Czech Republic', label: 'Česká republika 🇨🇿' },
+  { value: 'Austria', label: 'Rakúsko 🇦🇹' },
+  { value: 'Poland', label: 'Poľsko 🇵🇱' },
+  { value: 'Hungary', label: 'Maďarsko 🇭🇺' },
+  { value: 'Germany', label: 'Nemecko 🇩🇪' },
+  { value: 'France', label: 'Francúzsko 🇫🇷' },
+  { value: 'Italy', label: 'Taliansko 🇮🇹' },
+  { value: 'Spain', label: 'Španielsko 🇪🇸' },
+  { value: 'Netherlands', label: 'Holandsko 🇳🇱' },
+  { value: 'Belgium', label: 'Belgicko 🇧🇪' },
+  { value: 'Sweden', label: 'Švédsko 🇸🇪' },
+  { value: 'Norway', label: 'Nórsko 🇳🇴' },
+  { value: 'Denmark', label: 'Dánsko 🇩🇰' },
+  { value: 'Finland', label: 'Fínsko 🇫🇮' },
+  { value: 'Switzerland', label: 'Švajčiarsko 🇨🇭' },
+  { value: 'Portugal', label: 'Portugalsko 🇵🇹' },
+  { value: 'Romania', label: 'Rumunsko 🇷🇴' },
+  { value: 'Croatia', label: 'Chorvátsko 🇭🇷' },
+  { value: 'Serbia', label: 'Srbsko 🇷🇸' },
+  { value: 'Bulgaria', label: 'Bulharsko 🇧🇬' },
+  { value: 'Greece', label: 'Grécko 🇬🇷' },
+  { value: 'Ukraine', label: 'Ukrajina 🇺🇦' },
+  { value: 'UK', label: 'Spojené kráľovstvo 🇬🇧' },
+  { value: 'USA', label: 'USA 🇺🇸' },
+];
+
 const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => {
   const [url, setUrl] = useState('');
-  const [country, setCountry] = useState('');
+  const [country, setCountry] = useState('Slovakia');
+  const [industry, setIndustry] = useState('');
   const [errors, setErrors] = useState({ url: false, country: false });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -18,8 +47,6 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
     // Protocol normalization
     let normalizedUrl = url.trim();
     if (normalizedUrl) {
-      // If it doesn't start with http:// or https://, prepend https://
-      // This handles 'www.website.com' and 'website.com' correctly
       if (!/^https?:\/\//i.test(normalizedUrl)) {
         normalizedUrl = `https://${normalizedUrl}`;
       }
@@ -33,10 +60,8 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
 
     setErrors(newErrors);
 
-    // Only proceed if all fields are valid
     if (!newErrors.url && !newErrors.country) {
-      // Pass an empty string for industry, as it will be detected automatically
-      onAnalyze(normalizedUrl, country, "");
+      onAnalyze(normalizedUrl, country, industry.trim());
     }
   };
 
@@ -52,6 +77,7 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Website URL */}
         <div>
           <label className="block text-sm font-medium text-[#c5c5c5] mb-2">
             Webstránka Klienta
@@ -73,35 +99,55 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
                   setErrors(prev => ({ ...prev, url: false }));
                 }
               }}
-              className={`block w-full pl-10 pr-3 py-3 border rounded-lg leading-5 bg-[#1f1f1f] text-[#f7f7f7] placeholder-[#888] focus:outline-none focus:ring-2 focus:ring-[#63c1cf] transition duration-150 ease-in-out sm:text-sm ${errors.url ? 'border-[#ff6b6b] focus:border-[#ff6b6b]' : 'border-[#444] focus:border-[#63c1cf]'
-                }`}
+              className={`block w-full pl-10 pr-3 py-3 border rounded-lg leading-5 bg-[#1f1f1f] text-[#f7f7f7] placeholder-[#888] focus:outline-none focus:ring-2 focus:ring-[#63c1cf] transition duration-150 ease-in-out sm:text-sm ${errors.url ? 'border-[#ff6b6b] focus:border-[#ff6b6b]' : 'border-[#444] focus:border-[#63c1cf]'}`}
             />
           </div>
         </div>
 
+        {/* Country Dropdown */}
         <div>
           <label className="block text-sm font-medium text-[#c5c5c5] mb-2">
             Cieľová krajina pre konkurenciu
           </label>
-          {errors.country && (
-            <p className="text-xs text-[#ff6b6b] mb-1">Prosím vyplňte toto pole</p>
-          )}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-[#a0a0a0]" />
             </div>
-            <input
-              type="text"
-              placeholder="napr. Slovensko, Česko, Nemecko"
+            <select
               value={country}
               onChange={(e) => {
                 setCountry(e.target.value);
-                if (errors.country && e.target.value.trim()) {
-                  setErrors(prev => ({ ...prev, country: false }));
-                }
+                if (errors.country) setErrors(prev => ({ ...prev, country: false }));
               }}
-              className={`block w-full pl-10 pr-3 py-3 border rounded-lg leading-5 bg-[#1f1f1f] text-[#f7f7f7] placeholder-[#888] focus:outline-none focus:ring-2 focus:ring-[#63c1cf] transition duration-150 ease-in-out sm:text-sm ${errors.country ? 'border-[#ff6b6b] focus:border-[#ff6b6b]' : 'border-[#444] focus:border-[#63c1cf]'
-                }`}
+              className={`block w-full pl-10 pr-10 py-3 border rounded-lg leading-5 bg-[#1f1f1f] text-[#f7f7f7] focus:outline-none focus:ring-2 focus:ring-[#63c1cf] transition duration-150 ease-in-out sm:text-sm appearance-none cursor-pointer ${errors.country ? 'border-[#ff6b6b] focus:border-[#ff6b6b]' : 'border-[#444] focus:border-[#63c1cf]'}`}
+            >
+              {COUNTRY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-[#1f1f1f] text-[#f7f7f7]">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <ChevronDown className="h-4 w-4 text-[#a0a0a0]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Industry Input */}
+        <div>
+          <label className="block text-sm font-medium text-[#c5c5c5] mb-2">
+            Odvetvie <span className="text-[#666] font-normal">(voliteľné – automaticky sa deteguje)</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Briefcase className="h-5 w-5 text-[#a0a0a0]" />
+            </div>
+            <input
+              type="text"
+              placeholder="napr. Predaj bicyklov, SaaS softvér, Stavebníctvo..."
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              className="block w-full pl-10 pr-3 py-3 border border-[#444] rounded-lg leading-5 bg-[#1f1f1f] text-[#f7f7f7] placeholder-[#888] focus:outline-none focus:ring-2 focus:ring-[#63c1cf] focus:border-[#63c1cf] transition duration-150 ease-in-out sm:text-sm"
             />
           </div>
         </div>
@@ -109,8 +155,7 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
         <button
           type="submit"
           disabled={isLoading}
-          className={`w-full flex items-center justify-center py-4 px-4 mt-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-[#141313] bg-[#63c1cf] hover:bg-[#4ab5c4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#63c1cf] transition-all ${isLoading ? 'opacity-75 cursor-not-allowed' : ''
-            }`}
+          className={`w-full flex items-center justify-center py-4 px-4 mt-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-[#141313] bg-[#63c1cf] hover:bg-[#4ab5c4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#63c1cf] transition-all ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
         >
           {isLoading ? (
             <>
@@ -128,6 +173,5 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
     </div>
   );
 };
-
 
 export default InputSection;

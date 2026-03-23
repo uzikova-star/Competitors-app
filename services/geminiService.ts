@@ -4,6 +4,35 @@ import { ZodError } from "zod";
 import { AnalysisResult } from '../types';
 import { getPrompt, getResearchPrompt, getFormattingPrompt, getIndustryGuidance } from './prompts';
 import { AnalysisResultSchema } from './validation';
+import { fetchAhrefsForCompetitors } from './ahrefsService';
+import { buildCountryScopedQuery, getCountrySearchConfig } from './countryConfig';
+
+/**
+ * Builds a concise SEO position string from Ahrefs metrics.
+ * Falls back to the AI-estimated value if Ahrefs returned null.
+ */
+function buildSeoPositionString(
+  aiEstimate: string | undefined,
+  dr: number | null,
+  traffic: number | null,
+  keywords: number | null,
+  label: string,
+  topKeywords: number | null,
+  referringDomains: number | null,
+  paidKeywords: number | null
+): string {
+  if (dr === null && traffic === null) {
+    return aiEstimate || "N/A";
+  }
+  const parts: string[] = [label];
+  if (dr !== null) parts.push(`DR: ${dr}`);
+  if (traffic !== null) parts.push(`~${traffic.toLocaleString()} návštev/mes.`);
+  if (keywords !== null) parts.push(`${keywords.toLocaleString()} kľúčových slov`);
+  if (referringDomains !== null) parts.push(`${referringDomains.toLocaleString()} ref. domén`);
+  if (topKeywords !== null) parts.push(`Top 3: ${topKeywords.toLocaleString()} kľ. slov`);
+  if (paidKeywords !== null && paidKeywords > 0) parts.push(`Google Ads: áno`);
+  return parts.join(" · ");
+}
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
@@ -116,9 +145,13 @@ async function callWithFallback<T>(
 export const analyzeCompetitors = async (
   clientUrl: string,
   country: string,
-  industry: string
+  industry: string,
+  topProducts?: string
 ): Promise<AnalysisResult> => {
-  const prompt = getPrompt(clientUrl, country, industry);
+  const searchQuery = buildCountryScopedQuery(clientUrl, country);
+  const { lang, cr } = getCountrySearchConfig(country);
+  const prompt = getPrompt(clientUrl, country, industry, topProducts) +
+    `\n\n    SEARCH INSTRUCTION: Start your research with this country-scoped query: "${searchQuery}". Focus exclusively on ${country} operations and ignore results from other countries.`;
 
   return callWithFallback(async (modelId) => {
     const result = await ai.models.generateContent({
@@ -128,7 +161,8 @@ export const analyzeCompetitors = async (
       toolConfig: getToolConfig(country) as any,
       generationConfig: {
         responseMimeType: "application/json"
-      }
+      },
+      searchConfig: { searchLanguage: lang, searchCountry: cr }
     } as any);
 
     const text = result.text || "";
@@ -161,9 +195,41 @@ export const analyzeCompetitors = async (
     const rawData = JSON.parse(jsonString);
     const parsedData = AnalysisResultSchema.parse(rawData);
 
+    // Enrich with real Ahrefs SEO data
+    const allComps = [...parsedData.topCompetitors, ...parsedData.realCompetitors];
+    const websites = allComps.map((c) => c.website || "");
+    const ahrefsData = await fetchAhrefsForCompetitors(websites);
+
+    const enrich = (list: typeof allComps, offset: number) =>
+      list.map((comp, i) => {
+        const seo = ahrefsData[offset + i];
+        if (!seo) return comp;
+        return {
+          ...comp,
+          seoDR: seo.domainRating,
+          seoTraffic: seo.organicTraffic,
+          seoKeywords: seo.organicKeywords,
+          seoReferringDomains: seo.referringDomains,
+          seoTopKeywords: seo.topKeywords,
+          seoPosition: buildSeoPositionString(
+            comp.seoPosition,
+            seo.domainRating,
+            seo.organicTraffic,
+            seo.organicKeywords,
+            seo.seoPositionLabel,
+            seo.topKeywords,
+            seo.referringDomains,
+            seo.paidKeywords
+          ),
+        };
+      });
+
+    const topCount = parsedData.topCompetitors.length;
     return {
       ...parsedData,
-      sources: sources
+      topCompetitors: enrich(parsedData.topCompetitors, 0),
+      realCompetitors: enrich(parsedData.realCompetitors, topCount),
+      sources,
     };
   }, "analyzeCompetitors");
 };
@@ -174,16 +240,20 @@ export const analyzeCompetitors = async (
 export const performResearch = async (
   clientUrl: string,
   country: string,
-  industry: string
+  industry: string,
+  topProducts?: string
 ): Promise<{ text: string; sources: Array<{ title: string; uri: string }> }> => {
-  const prompt = getResearchPrompt(clientUrl, country, industry);
+  const prompt = getResearchPrompt(clientUrl, country, industry, topProducts);
+
+  const { lang, cr } = getCountrySearchConfig(country);
 
   return callWithFallback(async (modelId) => {
     const result = await ai.models.generateContent({
       model: modelId,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       tools: [{ googleSearch: {} }],
-      toolConfig: getToolConfig(country) as any
+      toolConfig: getToolConfig(country) as any,
+      searchConfig: { searchLanguage: lang, searchCountry: cr }
     } as any);
 
     const text = result.text || "";
@@ -205,25 +275,27 @@ export const verifyClient = async (
   country: string,
   industry: string
 )
-  : Promise<{ summary: string; correctIndustry: string; keyProducts: string[]; usp: string }> => {
+  : Promise<{ summary: string; correctIndustry: string; keyProducts: string[]; topSellers: string[]; usp: string }> => {
+  const searchQuery = buildCountryScopedQuery(clientUrl, country);
+  const { lang, cr } = getCountrySearchConfig(country);
   const prompt = `
-    You are a business intelligence expert analyzing a client's website for the ${country} market.
-    Client: ${clientUrl}
-    Input Industry: ${industry || "Not specified (detect from website)"}
-    Target Market: ${country}
+    IMPORTANT: You MUST visit this EXACT URL first: ${clientUrl}
+    This is a ${country} website. Do NOT search for the company name on Google first.
+    Do NOT use any other source until you have visited the URL directly.
+
+    CONTEXT: The user suggests this business belongs to the "${industry}" industry.
     
-    ${getIndustryGuidance(clientUrl, country, industry)}
-    
-    TASK:
-    1. Analyze the client's website to understand what they do IN ${country}.
-    2. Identify their primary industry/niche specifically for the ${country} market.
-    3. Return STRICT JSON only:
+    TASK: After visiting ${clientUrl}, identify what this business sells in the ${country} market. 
+    1. Look at the Homepage Hero section and Main Menu. What products get the MOST attention/prominence?
+    2. Define the exact industry focus. Verify if "${industry}" is accurate or needs refinement.
+
+    Return STRICT JSON only:
     {
-      "summary": "1-2 sentence summary in Slovak, focusing on their presence and offering in ${country}",
-      "correctIndustry": "most accurate industry label for their ${country} operations",
-      "keyProducts": ["product/service 1 available in ${country}", "product/service 2 available in ${country}"],
-      "topSellers": ["best selling product 1", "best selling product 2"],
-      "usp": "main unique selling point in the ${country} market"
+      "summary": "1-2 vety v slovenčine popisujúce čo firma predáva a kde pôsobí",
+      "correctIndustry": "Krátky názov odvetvia v slovenčine (napr. 'Plastové okná a dvere', 'Tepelné čerpadlá'). Ak je pôvodné zadanie '${industry}' správne, použite ho.",
+      "keyProducts": ["produkt/služba 1 (najprominentnejší)", "produkt/služba 2", "produkt/služba 3"],
+      "topSellers": ["najpredávanejší produkt 1", "najpredávanejší produkt 2"],
+      "usp": "Hlavná konkurenčná výhoda firmy na trhu ${country}"
     }
 `;
   return callWithFallback(async (modelId) => {
@@ -235,6 +307,7 @@ export const verifyClient = async (
       generationConfig: {
         responseMimeType: "application/json",
       },
+      searchConfig: { searchLanguage: lang, searchCountry: cr }
     } as any);
 
     const text = result.text || "";
@@ -247,22 +320,26 @@ export const verifyClient = async (
 
     return {
       summary: data.summary || "Zhrnutie nie je k dispozícii.",
-      correctIndustry: data.correctIndustry || industry,
+      correctIndustry: data.correctIndustry || industry || "Neznáme odvetvie",
       keyProducts: data.keyProducts || [],
       topSellers: data.topSellers || [],
       usp: data.usp || "N/A"
     };
   }, "verifyClient").catch(error => {
-    console.warn("Gemini Verification eventually failed, returning empty dataset:", error.message);
+    const msg = error.message || "";
+    if (msg.includes('429') || msg.includes('Quota') || msg.includes('RPD')) {
+      throw error;
+    }
+    console.warn("Gemini Verification eventually failed, returning empty dataset:", msg);
     return {
       summary: "",
-      correctIndustry: industry,
+      correctIndustry: industry || "Neznáme odvetvie",
       keyProducts: [],
+      topSellers: [],
       usp: ""
     }
   });
 };
-
 /**
  * Fallback formatter for Hybrid Analysis when Claude fails.
  */

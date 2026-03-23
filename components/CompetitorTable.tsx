@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Competitor } from '../types';
-import { ExternalLink, Search, DollarSign, Activity, Eye, CheckCircle, XCircle, Music2, Store, TrendingUp, User, ShoppingBag, Star } from 'lucide-react';
+import { ExternalLink, Search, DollarSign, Activity, Eye, CheckCircle, XCircle, Music2, Store, TrendingUp, User, ShoppingBag, Star, ShieldCheck, Users, Type, Link, Trophy } from 'lucide-react';
 
 interface CompetitorTableProps {
   title: string;
@@ -108,7 +108,12 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({ title, description, c
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <DollarSign className="w-3 h-3 text-[#63c1cf] shrink-0" />
-                        <span className="text-[#f7f7f7] font-medium">{comp.revenue}</span>
+                        <div>
+                          <div className="text-[#f7f7f7] font-medium leading-none">{comp.revenue}</div>
+                          {comp.revenueYear && comp.revenueYear !== 'N/A' && (
+                            <div className="text-[10px] text-[#888] mt-0.5">Rok: {comp.revenueYear}</div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Activity className="w-3 h-3 text-[#63c1cf] shrink-0" />
@@ -170,14 +175,69 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({ title, description, c
                   </div>
                 </td>
                 <td className="px-6 py-4 align-top">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Eye className="w-3 h-3 text-[#63c1cf] shrink-0" />
-                      <span className="font-medium text-[#f7f7f7]">{comp.seoPosition}</span>
+                  <div className="space-y-3">
+                    {/* Structured Metrics */}
+                    <div className="space-y-1.5">
+                      {comp.seoDR !== undefined && comp.seoDR !== null && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5 text-[#a0a0a0]">
+                            <ShieldCheck className="w-3 h-3 text-[#63c1cf]" />
+                            <span>Domain Rating (DR)</span>
+                          </div>
+                          <span className="font-bold text-[#f7f7f7]">{comp.seoDR}</span>
+                        </div>
+                      )}
+                      {comp.seoTraffic !== undefined && comp.seoTraffic !== null && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5 text-[#a0a0a0]">
+                            <Users className="w-3 h-3 text-[#63c1cf]" />
+                            <span>Mesačná návštevnosť</span>
+                          </div>
+                          <span className="font-bold text-[#f7f7f7]">~{comp.seoTraffic.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {comp.seoKeywords !== undefined && comp.seoKeywords !== null && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5 text-[#a0a0a0]">
+                            <Type className="w-3 h-3 text-[#63c1cf]" />
+                            <span>Kľúčové slová (Top 100)</span>
+                          </div>
+                          <span className="font-bold text-[#f7f7f7]">{comp.seoKeywords.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {comp.seoReferringDomains !== undefined && comp.seoReferringDomains !== null && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5 text-[#a0a0a0]">
+                            <Link className="w-3 h-3 text-[#63c1cf]" />
+                            <span>Odkazujúce domény</span>
+                          </div>
+                          <span className="font-bold text-[#f7f7f7]">{comp.seoReferringDomains.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {comp.seoTopKeywords !== undefined && comp.seoTopKeywords !== null && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5 text-[#a0a0a0]">
+                            <Trophy className="w-3 h-3 text-[#f27069]" />
+                            <span>Top Pozície (1-3)</span>
+                          </div>
+                          <span className="font-bold text-[#f27069]">{comp.seoTopKeywords.toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      {(!comp.seoDR && !comp.seoTraffic) && (
+                        <div className="flex items-center gap-2">
+                          <Eye className="w-3 h-3 text-[#63c1cf] shrink-0" />
+                          <span className="font-medium text-[#f7f7f7]">{comp.seoPosition}</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-[#c5c5c5] leading-relaxed line-clamp-3" title={comp.seoStrategy}>
-                      {comp.seoStrategy}
-                    </p>
+
+                    {/* Strategy Text */}
+                    <div className="pt-2 border-t border-[#333]/50">
+                      <p className="text-[11px] text-[#c5c5c5] leading-relaxed italic line-clamp-2" title={comp.seoStrategy}>
+                        {comp.seoStrategy}
+                      </p>
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 align-top">

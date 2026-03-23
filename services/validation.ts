@@ -5,11 +5,17 @@ export const CompetitorSchema = z.object({
     name: z.string(),
     website: z.string(),
     revenue: z.string().optional().or(z.literal("")),
+    revenueYear: z.string().optional().or(z.literal("")),
     economicResult: z.string().optional().or(z.literal("")),
     physicalStore: z.boolean().optional().default(false),
     monthlyAdSpend: z.string().optional().or(z.literal("")),
     annualAdSpend: z.string().optional().or(z.literal("")),
     seoPosition: z.string().optional().or(z.literal("")),
+    seoDR: z.number().optional().nullable(),
+    seoTraffic: z.number().optional().nullable(),
+    seoKeywords: z.number().optional().nullable(),
+    seoReferringDomains: z.number().optional().nullable(),
+    seoTopKeywords: z.number().optional().nullable(),
     seoStrategy: z.string().optional().or(z.literal("")),
     metaAdsStatus: z.boolean().optional().default(false),
     metaAdsFocus: z.string().optional().or(z.literal("")),
@@ -20,6 +26,15 @@ export const CompetitorSchema = z.object({
     googlePPC: z.boolean().optional().default(false),
     mainProducts: z.array(z.string()).optional(),
     bestSellers: z.array(z.string()).optional(),
+    isVerified: z.boolean().optional().default(true),
+}).transform((data) => {
+    const hasSeo = (data.seoDR ?? 0) > 0 || (data.seoTraffic ?? 0) > 0;
+    const hasAds = !!data.metaAdsStatus || !!data.googlePPC || !!data.tikTokAdsStatus;
+    
+    return {
+        ...data,
+        isVerified: hasSeo || hasAds
+    };
 });
 
 export const ClientAnalysisSchema = z.object({

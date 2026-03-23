@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { analyzeCompetitors, verifyClient, } from './services/geminiService';
-import { analyzeCompetitorsHybrid } from './services/hybridService';
 import InputSection from './components/InputSection';
 import CompetitorTable from './components/CompetitorTable';
 import ClientAnalysisCard from './components/ClientAnalysis';
@@ -14,7 +13,6 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isSourcesVisible, setIsSourcesVisible] = useState(false);
-  const [model, setModel] = useState<'gemini' | 'hybrid'>('gemini');
 
   // Verification State
   const [verificationData, setVerificationData] = useState<{ summary: string; correctIndustry: string; keyProducts: string[]; usp: string } | null>(null);
@@ -36,16 +34,11 @@ const App: React.FC = () => {
     }
   };
 
-  const startFullAnalysis = async (url: string, country: string, industry: string) => {
+  const startFullAnalysis = async (url: string, country: string, industry: string, topProducts?: string) => {
     setStatus('analyzing');
     setIsSourcesVisible(false);
     try {
-      let data;
-      if (model === 'hybrid') {
-        data = await analyzeCompetitorsHybrid(url, country, industry);
-      } else {
-        data = await analyzeCompetitors(url, country, industry);
-      }
+      const data = await analyzeCompetitors(url, country, industry, topProducts);
       setResult(data);
       setStatus('complete');
     } catch (err: any) {
@@ -57,7 +50,8 @@ const App: React.FC = () => {
 
   const handleVerificationConfirm = () => {
     if (pendingRequest && verificationData) {
-      startFullAnalysis(pendingRequest.url, pendingRequest.country, verificationData.correctIndustry);
+      const topProductsHint = verificationData.keyProducts?.join(', ');
+      startFullAnalysis(pendingRequest.url, pendingRequest.country, verificationData.correctIndustry, topProductsHint);
     }
   };
 
@@ -85,30 +79,6 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="relative">
-            <div className="flex bg-[#e5e5e5] p-1 rounded-lg">
-              <button
-                onClick={() => setModel('gemini')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${model === 'gemini'
-                  ? 'bg-white text-[#141313] shadow-sm'
-                  : 'text-[#666] hover:text-[#141313]'
-                  }`}
-              >
-                <Zap className="w-3 h-3" />
-                Gemini (Fast)
-              </button>
-              <button
-                onClick={() => setModel('hybrid')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${model === 'hybrid'
-                  ? 'bg-white text-[#141313] shadow-sm'
-                  : 'text-[#666] hover:text-[#141313]'
-                  }`}
-              >
-                <Sparkles className="w-3 h-3" />
-                Hybrid (Best)
-              </button>
-            </div>
-          </div>
 
           {status === 'complete' && (
             <button
@@ -239,16 +209,9 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
             <InputSection onAnalyze={() => { }} isLoading={true} />
             <div className="mt-8 text-[#141313] text-sm animate-pulse text-center">
-              <div className="mt-8 text-[#141313] text-sm animate-pulse text-center">
-                {model === 'hybrid' ? (
-                  <div className="flex flex-col gap-2">
-                    <p>🤖 Fáza 1: Gemini skúma internet a hľadá dáta...</p>
-                    <p className="text-xs text-[#666]">🧠 Fáza 2: Claude analyzuje a formátuje výsledky...</p>
-                  </div>
-                ) : (
-                  <p>Daj mi chvíľu, pracujem na tvojej analýze...</p>
-                )}
-              </div>
+            <div className="mt-8 text-[#141313] text-sm animate-pulse text-center">
+              <p>Daj mi chvíľu, pracujem na tvojej analýze...</p>
+            </div>
             </div>
           </div>
         )}
